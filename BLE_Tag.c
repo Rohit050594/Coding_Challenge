@@ -1,70 +1,129 @@
 #include <stdio.h>
-#include <inttypes.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <string.h>
+#include <endian.h>
 
-void parseAccelerometerFrame(uint8_t *data) {
-    // Offset and length information for the accelerometer frame
-    int offsets[] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 16, 18, 20};
-    int lengths[] = {1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 2, 2, 2, 6};
-    
-    // Interpret data based on the given structure
-    for (int i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++) {
-        int offset = offsets[i];
-        int length = lengths[i];
-        
-        printf("Accelerometer Field %d: Offset: %d, Length: %d, Data: ", i, offset, length);
-        
-        // Print the data based on its length and type
-        if (length == 1) {
-            printf("%02X\n", data[offset]);
-        } else if (length == 2) {
-            uint16_t value = (data[offset + 1] << 8) | data[offset];
-            printf("%04X\n", value);
-        } else if (length == 6) {
-            printf("%02X:%02X:%02X:%02X:%02X:%02X\n", data[offset], data[offset + 1], data[offset + 2], data[offset + 3], data[offset + 4], data[offset + 5]);
-        }
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
+
+// Function to parse accelerometer data from the BLE packet
+void parseAccelerometerData(uint8_t *data, int length) {
+    // Implement parsing logic based on the provided format
+    // This is a placeholder, replace it with the actual logic
+    printf("Accelerometer Data: ");
+    for (int i = 0; i < length; i++) {
+        printf("%02X ", data[i]);
     }
+    printf("\n");
 }
 
-void parseIBeaconFrame(uint8_t *data) {
-    // Offset and length information for the iBeacon frame
-    int offsets[] = {0, 1, 2, 3, 4, 5, 7, 9, 25, 27, 29};
-    int lengths[] = {1, 1, 1, 1, 1, 2, 2, 16, 2, 2, 1};
-    
-    // Interpret data based on the given structure
-    for (int i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++) {
-        int offset = offsets[i];
-        int length = lengths[i];
-        
-        printf("iBeacon Field %d: Offset: %d, Length: %d, Data: ", i, offset, length);
-        
-        // Print the data based on its length and type
-        if (length == 1) {
-            printf("%02X\n", data[offset]);
-        } else if (length == 2) {
-            uint16_t value = (data[offset + 1] << 8) | data[offset];
-            printf("%04X\n", value);
-        } else if (length == 16) {
-            printf("%02X%02X%02X%02X%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X\n",
-                data[offset], data[offset + 1], data[offset + 2], data[offset + 3],
-                data[offset + 4], data[offset + 5], data[offset + 6], data[offset + 7],
-                data[offset + 8], data[offset + 9], data[offset + 10], data[offset + 11],
-                data[offset + 12], data[offset + 13], data[offset + 14], data[offset + 15]);
-        }
+// Function to parse iBeacon data from the BLE packet
+void parseIBeaconData(uint8_t *data, int length) {
+    // Implement parsing logic based on the provided format
+    // This is a placeholder, replace it with the actual logic
+    printf("iBeacon Data: ");
+    for (int i = 0; i < length; i++) {
+        printf("%02X ", data[i]);
+    }
+    printf("\n");
+}
+
+// Function to check movement status based on accelerometer data
+void checkMovementStatus(uint8_t *data) {
+    // Implement movement status check based on accelerometer data
+    // This is a placeholder, replace it with the actual logic
+    printf("Movement Status: ");
+    // Example: Check the accelerometer data for movement
+    int x_axis = (int8_t)data[14];
+    int y_axis = (int8_t)data[16];
+    int z_axis = (int8_t)data[18];
+    if (x_axis != 0 || y_axis != 0 || z_axis != 0) {
+        printf("Moving\n");
+    } else {
+        printf("Stationary\n");
     }
 }
 
 int main() {
-    // Sample data for accelerometer frame
-    uint8_t accelerometerData[] = {2, 1, 0x06, 3, 0x03, 0xE1, 0xFF, 18, 0x16, 0xE1, 0xFF, 0xA1, 0x03, 0x64, 0x00, 0x00, 0xFF, 0x80, 0x01, 0x3B, 0x00, 0x90, 0x78, 0x56, 0x34, 12, 34, 56, 78, 90, 0x00};
-    
-    // Sample data for iBeacon frame
-    uint8_t iBeaconData[] = {2, 1, 0x06, 26, 0xFF, 0x4C, 0x00, 0x21, 0x15, 0x01, 0x12, 0x23, 0x34, 0x45, 0x56, 0x67, 0x78, 0x89, 0x9A, 0xAB, 0xBC, 0xCD, 0xDE, 0xEF, 0xF0, 0x03, 0xE8, 0x07, 0xD0, 0xC5};
-    
-    printf("Parsing Accelerometer Frame:\n");
-    parseAccelerometerFrame(accelerometerData);
-    
-    printf("\nParsing iBeacon Frame:\n");
-    parseIBeaconFrame(iBeaconData);
-    
+    int device_id = hci_get_route(NULL);
+    int device_handle = hci_open_dev(device_id);
+
+    if (device_id < 0 || device_handle < 0) {
+        perror("Error opening HCI device.");
+        exit(1);
+    }
+
+    struct hci_filter old_options;
+    socklen_t olen = sizeof(old_options);
+
+    if (getsockopt(device_handle, SOL_HCI, HCI_FILTER, &old_options, &olen) < 0) {
+        perror("Error getting socket options");
+        exit(1);
+    }
+
+    struct hci_filter new_options;
+    hci_filter_clear(&new_options);
+    hci_filter_set_ptype(HCI_EVENT_PKT, &new_options);
+    if (setsockopt(device_handle, SOL_HCI, HCI_FILTER, &new_options, sizeof(new_options)) < 0) {
+        perror("Error setting socket options");
+        exit(1);
+    }
+
+    while (1) {
+        unsigned char buf[HCI_MAX_EVENT_SIZE];
+        ssize_t len = read(device_handle, buf, sizeof(buf));
+
+        if (len > 0) {
+            uint8_t *ptr = buf + (1 + HCI_EVENT_HDR_SIZE); // Skip the HCI event header
+
+            // Iterate through HCI events
+            while (ptr < buf + len) {
+                uint8_t event_type = *ptr; // Event type is the first byte of each event
+
+                if (event_type == EVT_LE_META_EVENT) {
+                    ptr += 3; // Skip the subevent code and status
+                    uint8_t subevent = *ptr;
+
+                    if (subevent == EVT_LE_ADVERTISING_REPORT) {
+                        ptr++; // Skip the subevent code
+                        le_advertising_info *info = (le_advertising_info *)ptr;
+
+                        // Extract Mac address and RSSI
+                        char mac[18];
+                        ba2str(&info->bdaddr, mac);
+                        int8_t rssi = (int8_t)info->data[info->length];
+
+                        // Print Mac address and RSSI
+                        printf("Mac: %s, RSSI: %d, ", mac, rssi);
+
+                        // Check if it's an Accelerometer Beacon
+                        if (info->length == 21 && info->data[1] == 0x06) {
+                            // Parse and print Accelerometer data
+                            parseAccelerometerData(info->data, info->length);
+                            // Check movement status
+                            checkMovementStatus(info->data);
+                        }
+
+                        // Check if it's an iBeacon
+                        if (info->length == 30 && info->data[1] == 0x06) {
+                            // Parse and print iBeacon data
+                            parseIBeaconData(info->data, info->length);
+                        }
+
+                        printf("\n");
+                    }
+                }
+
+                ptr += 2 + ptr[1]; // Move to the next event
+            }
+        }
+    }
+
+    close(device_handle);
+
     return 0;
 }
+
