@@ -1,45 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <signal.h>
-#include <string.h>
-#include <endian.h>
-
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
-// Function to parse accelerometer data from the BLE packet
-void parseAccelerometerData(uint8_t *data, int length) {
+void parseAccelerometerData(uint8_t *data) {
     // Implement parsing logic based on the provided format
     // This is a placeholder, replace it with the actual logic
     printf("Accelerometer Data: ");
-    for (int i = 0; i < length; i++) {
-        printf("%02X ", data[i]);
+    for (int i = 0; i < 6; i++) {
+        printf("%02X ", data[i + 11]);
     }
     printf("\n");
 }
 
-// Function to parse iBeacon data from the BLE packet
-void parseIBeaconData(uint8_t *data, int length) {
-    // Implement parsing logic based on the provided format
-    // This is a placeholder, replace it with the actual logic
-    printf("iBeacon Data: ");
-    for (int i = 0; i < length; i++) {
-        printf("%02X ", data[i]);
-    }
-    printf("\n");
-}
-
-// Function to check movement status based on accelerometer data
 void checkMovementStatus(uint8_t *data) {
     // Implement movement status check based on accelerometer data
     // This is a placeholder, replace it with the actual logic
     printf("Movement Status: ");
-    // Example: Check the accelerometer data for movement
-    int x_axis = (int8_t)data[14];
-    int y_axis = (int8_t)data[16];
-    int z_axis = (int8_t)data[18];
+    int x_axis = (int8_t)data[13];
+    int y_axis = (int8_t)data[15];
+    int z_axis = (int8_t)data[17];
     if (x_axis != 0 || y_axis != 0 || z_axis != 0) {
         printf("Moving\n");
     } else {
@@ -102,15 +84,9 @@ int main() {
                         // Check if it's an Accelerometer Beacon
                         if (info->length == 21 && info->data[1] == 0x06) {
                             // Parse and print Accelerometer data
-                            parseAccelerometerData(info->data, info->length);
+                            parseAccelerometerData(info->data);
                             // Check movement status
                             checkMovementStatus(info->data);
-                        }
-
-                        // Check if it's an iBeacon
-                        if (info->length == 30 && info->data[1] == 0x06) {
-                            // Parse and print iBeacon data
-                            parseIBeaconData(info->data, info->length);
                         }
 
                         printf("\n");
@@ -126,4 +102,6 @@ int main() {
 
     return 0;
 }
+
+
 
