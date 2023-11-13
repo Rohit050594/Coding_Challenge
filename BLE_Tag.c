@@ -6,26 +6,26 @@
 #include <bluetooth/hci_lib.h>
 
 void parseAccelerometerData(uint8_t *data) {
-    // Implement parsing logic based on the provided format
-    // This is a placeholder, replace it with the actual logic
-    printf("Accelerometer Data: ");
-    for (int i = 0; i < 6; i++) {
-        printf("%02X ", data[i + 11]);
-    }
-    printf("\n");
+    // Extract accelerometer data based on the provided format
+    int16_t x_axis = le16toh(*(int16_t *)&data[14]);
+    int16_t y_axis = le16toh(*(int16_t *)&data[16]);
+    int16_t z_axis = le16toh(*(int16_t *)&data[18]);
+
+    // Print accelerometer data
+    printf("X-axis: %f g, Y-axis: %f g, Z-axis: %f g\n",
+           x_axis / 256.0, y_axis / 256.0, z_axis / 256.0);
 }
 
 void checkMovementStatus(uint8_t *data) {
-    // Implement movement status check based on accelerometer data
-    // This is a placeholder, replace it with the actual logic
-    printf("Movement Status: ");
-    int x_axis = (int8_t)data[13];
-    int y_axis = (int8_t)data[15];
-    int z_axis = (int8_t)data[17];
+    // Check movement status based on accelerometer data
+    int16_t x_axis = le16toh(*(int16_t *)&data[14]);
+    int16_t y_axis = le16toh(*(int16_t *)&data[16]);
+    int16_t z_axis = le16toh(*(int16_t *)&data[18]);
+
     if (x_axis != 0 || y_axis != 0 || z_axis != 0) {
-        printf("Moving\n");
+        printf("Movement Status: Moving\n");
     } else {
-        printf("Stationary\n");
+        printf("Movement Status: Stationary\n");
     }
 }
 
@@ -49,6 +49,7 @@ int main() {
     struct hci_filter new_options;
     hci_filter_clear(&new_options);
     hci_filter_set_ptype(HCI_EVENT_PKT, &new_options);
+
     if (setsockopt(device_handle, SOL_HCI, HCI_FILTER, &new_options, sizeof(new_options)) < 0) {
         perror("Error setting socket options");
         exit(1);
@@ -59,33 +60,28 @@ int main() {
         ssize_t len = read(device_handle, buf, sizeof(buf));
 
         if (len > 0) {
-            uint8_t *ptr = buf + (1 + HCI_EVENT_HDR_SIZE); // Skip the HCI event header
+            uint8_t *ptr = buf + (1 + HCI_EVENT_HDR_SIZE);
 
-            // Iterate through HCI events
             while (ptr < buf + len) {
-                uint8_t event_type = *ptr; // Event type is the first byte of each event
+                uint8_t event_type = *ptr;
 
                 if (event_type == EVT_LE_META_EVENT) {
-                    ptr += 3; // Skip the subevent code and status
+                    ptr += 3;
                     uint8_t subevent = *ptr;
 
                     if (subevent == EVT_LE_ADVERTISING_REPORT) {
-                        ptr++; // Skip the subevent code
+                        ptr++;
                         le_advertising_info *info = (le_advertising_info *)ptr;
 
-                        // Extract Mac address and RSSI
                         char mac[18];
                         ba2str(&info->bdaddr, mac);
                         int8_t rssi = (int8_t)info->data[info->length];
 
-                        // Print Mac address and RSSI
                         printf("Mac: %s, RSSI: %d, ", mac, rssi);
 
                         // Check if it's an Accelerometer Beacon
                         if (info->length == 21 && info->data[1] == 0x06) {
-                            // Parse and print Accelerometer data
                             parseAccelerometerData(info->data);
-                            // Check movement status
                             checkMovementStatus(info->data);
                         }
 
@@ -93,7 +89,7 @@ int main() {
                     }
                 }
 
-                ptr += 2 + ptr[1]; // Move to the next event
+                ptr += 2 + ptr[1];
             }
         }
     }
